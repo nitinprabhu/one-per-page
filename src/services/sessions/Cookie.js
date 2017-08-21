@@ -2,8 +2,10 @@ const { Cookie } = require('express-session');
 const { parse: parseCookie } = require('cookie');
 const signature = require('cookie-signature');
 
+const prefix = 's:';
+
 const sessionCookieHeader = (name, secret, session) => {
-  const signedContent = `s:${signature.sign(session.id, secret)}`;
+  const signedContent = `${prefix}${signature.sign(session.id, secret)}`;
   const header = session.cookie.serialize(name, signedContent);
   return header;
 };
@@ -26,19 +28,14 @@ const setCookie = (name, secret, req, res) => {
   appendCookieHeader(res, headerValue);
 };
 
-const getCookie = (name, secret, req) => {
-  const header = req.headers.cookie;
-  if (typeof header === 'undefined') return;
+const loadCookie = (name, secret, req) => {
+  const header = req.headers.cookie || '';
+  const raw = parseCookie(header)[name] || '';
+  const cookieValue = signature.unsign(raw.slice(prefix.length), secret);
 
-  const raw = parseCookie(header)[name];
-  if (typeof raw === 'undefined') return;
-
-  if (raw.startsWith('s:')) {
-    const cookieValue = signature.unsign(raw.slice(2), secret);
-    if (cookieValue) {
-      req.sessionID = cookieValue;
-    }
+  if (cookieValue) {
+    req.sessionID = cookieValue;
   }
 };
 
-module.exports = { Cookie, setCookie, getCookie };
+module.exports = { Cookie, setCookie, loadCookie };
